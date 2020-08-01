@@ -4,9 +4,18 @@ services:
   - docker
 
 before_script:
+  - openssl aes-256-cbc -K $encrypted_23c54cda1817_key -iv $encrypted_23c54cda1817_iv -in .env-chat.enc -out .env-chat -d #get env
+  - source ./.env-chat #source env
+  # GCP Preparation
+  - openssl aes-256-cbc -K $encrypted_09065604aefa_key -iv $encrypted_09065604aefa_iv -in chat-deployer.json.enc -out chat-deployer.json -d
+  - curl https://sdk.cloud.google.com > install.sh #download sdk
+  - source install.sh --disable-prompts #install sdk silently
+  - source $HOME/google-cloud-sdk/path.bash.inc #gcloud path
+  - gcloud auth activate-service-account --key-file chat-deployer.json #use auth for travis to acess compute engine
+  - gcloud config set project "$PROJECT_ID" #set project id
+  - gcloud config set compute/zone "$COMPUTE_ZONE" #set zone
+  - gcloud config set compute/region "$COMPUTE_REGION" #set zone
   # AWS Preparation
-  - openssl aes-256-cbc -K $encrypted_23c54cda1817_key -iv $encrypted_23c54cda1817_iv -in .env-chat.enc -out .env-chat -d
-  - source ./.env-chat
   - openssl aes-256-cbc -K $encrypted_8e598197dea0_key -iv $encrypted_8e598197dea0_iv -in to-do-list-aws.pem.enc -out to-do-list-aws.pem -d # get encrypted pem
   - chmod 400 ./"$AWS_PEM" # chmod 400 to pem
   # preparing image
@@ -17,8 +26,14 @@ before_script:
   
 
 script:
-  - sudo scp -o StrictHostKeyChecking=no -i $AWS_PEM ./env-chat $AWS_HOST@$DEPLOY_HOST:$AWS_WORKDIR < interactive_login.in
+  # send env
+  - sudo scp -o StrictHostKeyChecking=no -i $AWS_PEM ./.env-chat $AWS_HOST@$DEPLOY_HOST:$AWS_WORKDIR
+  - sudo gcloud compute scp ./.env-chat $VM_NAME:$GCP_WORKDIR
+  # send deploy sh
+  - sudo scp -o StrictHostKeyChecking=no -i $AWS_PEM ./deploy-chat-aws.sh $AWS_HOST@$DEPLOY_HOST:$AWS_WORKDIR
+  - sudo gcloud compute scp ./deploy-chat-gcp.sh $VM_NAME:$GCP_WORKDIR
 
 after_script:
   # deploy
-  - ssh -i -o StrictHostKeyChecking=no $AWS_PEM $AWS_HOST@$DEPLOY_HOST "bash -s < deploy-chat-aws.sh" #aws
+  - sudo ssh -i $AWS_PEM $AWS_HOST@$DEPLOY_HOST -o StrictHostKeyChecking=no "bash -s < deploy-chat-aws.sh"
+  - sudo gcloud compute ssh $VM_NAME --commad "cd $GCP_WORKDIR && bash < deploy-chat-gcp.sh"
