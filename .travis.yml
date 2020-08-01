@@ -9,7 +9,6 @@ before_script:
   - source ./.env-chat
   - openssl aes-256-cbc -K $encrypted_8e598197dea0_key -iv $encrypted_8e598197dea0_iv -in to-do-list-aws.pem.enc -out to-do-list-aws.pem -d # get encrypted pem
   - chmod 400 ./"$AWS_PEM" # chmod 400 to pem
-  - ssh-keyscan -H $DEPLOY_HOST >> ~/.ssh/known_hosts # set known host, prevent interactive ssh
   # preparing image
   - npm install
   - docker build -t "$DOCKER_USERNAME"/"$IMAGE" .
@@ -18,7 +17,7 @@ before_script:
   
 
 script:
-  - sudo scp -i $AWS_PEM ./env-chat $AWS_HOST@$DEPLOY_HOST:$AWS_WORKDIR
+  - sudo scp -i $AWS_PEM ./env-chat $AWS_HOST@$DEPLOY_HOST:$AWS_WORKDIR < interactive_login.in
 
 after_script:
   # deploy
