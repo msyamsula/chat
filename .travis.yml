@@ -17,8 +17,8 @@ before_script:
   
 
 script:
-  - sudo scp -i $AWS_PEM ./env-chat $AWS_HOST@$DEPLOY_HOST:$AWS_WORKDIR < interactive_login.in
+  - sudo scp -o StrictHostKeyChecking=no -i $AWS_PEM ./env-chat $AWS_HOST@$DEPLOY_HOST:$AWS_WORKDIR < interactive_login.in
 
 after_script:
   # deploy
-  - ssh -i $AWS_PEM $AWS_HOST@$DEPLOY_HOST "bash -s < deploy-chat-aws.sh" #aws
+  - ssh -i -o StrictHostKeyChecking=no $AWS_PEM $AWS_HOST@$DEPLOY_HOST "bash -s < deploy-chat-aws.sh" #aws
