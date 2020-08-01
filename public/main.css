@@ -1,0 +1,20 @@
+.chat-ui {
+  display: grid;
+  grid-template-columns: 1fr 1fr 8fr;
+  grid-template-rows: 1fr;
+  grid-template-areas: "namespace-col room-col chat-col";
+}
+
+.namespace-col {
+  grid-area: namespace-col;
+}
+
+.room-col {
+  grid-area: room-col;
+}
+
+.chat-col {
+  grid-area: chat-col;
+  align-self: center;
+  justify-self: center;
+}

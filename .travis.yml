@@ -1,0 +1,53 @@
+language: generic
+sudo: required
+services:
+  - docker
+
+before_script:
+  # GCP Preparation
+  - openssl aes-256-cbc -K $encrypted_3a4b98c9e056_key -iv $encrypted_3a4b98c9e056_iv -in service-account-full.json.enc -out service-account-full.json -d # give encrypted service account(permission) to travis
+  - openssl aes-256-cbc -K $encrypted_3c84dcdc6bbe_key -iv $encrypted_3c84dcdc6bbe_iv -in .env.enc -out .env -d #get env
+  - source ./.env #source env
+  - curl https://sdk.cloud.google.com > install.sh #download sdk
+  - source install.sh --disable-prompts #install sdk silently
+  - source $HOME/google-cloud-sdk/path.bash.inc #gcloud path
+  - gcloud auth activate-service-account --key-file service-account-full.json #use auth for travis to acess compute engine
+  - gcloud config set project "$PROJECT_ID" #set project id
+  - gcloud config set compute/zone "$COMPUTE_ZONE" #set zone
+  - gcloud config set compute/region "$COMPUTE_REGION" #set zone
+  # AWS Preparation
+  - openssl aes-256-cbc -K $encrypted_8e598197dea0_key -iv $encrypted_8e598197dea0_iv -in to-do-list-aws.pem.enc -out to-do-list-aws.pem -d # get encrypted pem
+  - chmod 400 ./"$AWS_PEM" # chmod 400 to pem
+  - ssh-keyscan -H $DEPLOY_HOST >> ~/.ssh/known_hosts # set known host, prevent interactive ssh
+  # preparing image
+  - npm install
+  - npm run build
+  - docker build -t "$DOCKER_USERNAME"/"$IMAGE" .
+  - docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"
+  - docker push "$DOCKER_USERNAME"/"$IMAGE"
+  
+
+script:
+  # delete current docker-compose
+  - ssh -i $AWS_PEM $AWS_HOST@$DEPLOY_HOST "rm -rf ./docker-compose.yml" #aws
+  - sudo gcloud compute ssh $VM_NAME --command "cd $GCP_WORKDIR && sudo rm -rf ./docker-compose.yml" #gcp
+  # delete current deploy.sh
+  - ssh -i $AWS_PEM $AWS_HOST@$DEPLOY_HOST "rm -rf ./deploy-aws.sh" #aws
+  - sudo gcloud compute ssh $VM_NAME --command "cd $GCP_WORKDIR && sudo rm -rf ./deploy-gcp.sh" #gcp
+  # delete env at remote
+  - ssh -i $AWS_PEM $AWS_HOST@$DEPLOY_HOST "rm -rf ./.env"
+  - sudo gcloud compute ssh $VM_NAME --command "cd $GCP_WORKDIR && sudo rm -rf ./.env"
+  # send new env to remote
+  - scp -i $AWS_PEM ./.env $AWS_HOST@$DEPLOY_HOST:$AWS_WORKDIR
+  - sudo gcloud compute scp ./.env $VM_NAME:$GCP_WORKDIR
+  # scp new docker-compose
+  - scp -i $AWS_PEM ./docker-compose.yml $AWS_HOST@$DEPLOY_HOST:$AWS_WORKDIR #aws
+  - sudo gcloud compute scp ./docker-compose.yml $VM_NAME:$GCP_WORKDIR #gcp
+  # scp new deploy.sh
+  - scp -i $AWS_PEM ./deploy-aws.sh $AWS_HOST@$DEPLOY_HOST:$AWS_WORKDIR #aws
+  - sudo gcloud compute scp ./deploy-gcp.sh $VM_NAME:$GCP_WORKDIR #gcp
+
+after_script:
+  # deploy
+  - ssh -i $AWS_PEM $AWS_HOST@$DEPLOY_HOST "bash -s < deploy-aws.sh" #aws
+  - sudo gcloud compute ssh $VM_NAME --command "cd $GCP_WORKDIR && sudo bash -s < deploy-gcp.sh" #gcp
