@@ -19,7 +19,6 @@ before_script:
   - openssl aes-256-cbc -K $encrypted_8e598197dea0_key -iv $encrypted_8e598197dea0_iv -in to-do-list-aws.pem.enc -out to-do-list-aws.pem -d # get encrypted pem
   - chmod 400 ./"$AWS_PEM" # chmod 400 to pem
   # preparing image
-  - npm install
   - docker build -t "$DOCKER_USERNAME"/"$IMAGE" .
   - docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"
   - docker push "$DOCKER_USERNAME"/"$IMAGE"
@@ -36,4 +35,4 @@ script:
 after_script:
   # deploy
   - sudo ssh -i $AWS_PEM $AWS_HOST@$DEPLOY_HOST -o StrictHostKeyChecking=no "bash -s < deploy-chat-aws.sh"
-  - sudo gcloud compute ssh $VM_NAME --commad "cd $GCP_WORKDIR && bash < deploy-chat-gcp.sh"
+  - sudo gcloud compute ssh $VM_NAME --command "cd $GCP_WORKDIR && bash < deploy-chat-gcp.sh"
