@@ -12,7 +12,6 @@ before_script:
   - ssh-keyscan -H $DEPLOY_HOST >> ~/.ssh/known_hosts # set known host, prevent interactive ssh
   # preparing image
   - npm install
-  - npm run build
   - docker build -t "$DOCKER_USERNAME"/"$IMAGE" .
   - docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"
   - docker push "$DOCKER_USERNAME"/"$IMAGE"
