@@ -1,12 +1,10 @@
 // client side io
 const io = require("socket.io-client");
-const joinRoom = require("./utility").joinRoom;
-// const writeChat = require("./module/writeChat");
 import writeChat from "./module/writeChat";
 
 const url = "http://localhost:5000";
 const socket = io(url);
-let roomSocket;
+let nsSocket;
 
 socket.on("server-send-namespace", (message) => {
   // namespace tab
@@ -44,13 +42,11 @@ socket.on("server-send-namespace", (message) => {
         roomId.addEventListener("click", (event) => {
           event.preventDefault();
 
-          // connect to current namspace
-          if (roomSocket) {
-            roomSocket.close();
-          }
           // grab chat tab and add current room to HTML
           let chatHTML = document.querySelector(".chat");
-          chatHTML.innerHTML = `<div>Current room: ${room.name}</div>`;
+          let totalMember = 1;
+          chatHTML.innerHTML = `<div class="room-header ${totalMember}">Current room: ${room.name}</div>
+           <div class="room-member">${totalMember} active user(s)</div>`;
 
           // add input text
           chatHTML.insertAdjacentHTML(
@@ -58,20 +54,44 @@ socket.on("server-send-namespace", (message) => {
             `<input type="text" class="text-box" />`
           );
 
-          // add textBox object
-          roomSocket = io(`${url}${ns.endpoint}`);
-          let textBox = new writeChat(roomSocket);
-
-          roomSocket.on(`welcome-to-${ns.name}`, (data) => {
-            // join room
-            joinRoom(roomSocket, room.name);
+          // disconnect from previous namespace
+          if (nsSocket) {
+            nsSocket.emit("leave-room", {});
+            nsSocket.close();
+          }
+          // connect to current namespace
+          nsSocket = io(`${url}${ns.endpoint}`);
+          nsSocket.emit("join-room", { data: room.name });
+          nsSocket.on("catch-history", (message) => {
+            const history = message.data;
+            history.forEach((text) => {
+              chatHTML.insertAdjacentHTML("beforeend", `<div>${text}</div>`);
+            });
           });
+          nsSocket.on("new-user", (message) => {
+            let roomHeaderHTML = document.querySelector(".room-header");
+            let roomMemberHTML = document.querySelector(".room-member");
+            totalMember = message.data;
+            roomHeaderHTML.innerHTML = `Current room: ${room.name}`;
+            roomMemberHTML.innerHTML = `${totalMember} active user(s)`;
+          });
+          nsSocket.on("leave-room", (message) => {
+            let roomMemberHTML = document.querySelector(".room-member");
+            totalMember = message.data;
+            roomMemberHTML.innerHTML = `${totalMember} active user(s)`;
+          });
+          // add textBox object
+          let textBox = new writeChat(nsSocket);
 
-          roomSocket.on("message-from-server", (message) => {
+          // nsSocket.on(`welcome-to-${ns.name}`, (data) => {
+          //   // join room
+          // });
+
+          nsSocket.on("message-from-server", (message) => {
             console.log(message.data);
             let chatdiv = document.querySelector(".chat");
             chatdiv.insertAdjacentHTML(
-              "beforebegin",
+              "beforeend",
               `<div>${message.data}</div>`
             );
           });
