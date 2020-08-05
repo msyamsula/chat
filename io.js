@@ -14,8 +14,17 @@ io.on("connect", (socket) => {
 
 namespaces.forEach((ns) => {
   io.of(ns.endpoint).on("connect", (socket) => {
-    console.log(socket.id);
     socket.emit(`welcome-to-${ns.name}`, `welcome-to-${ns.name}`);
-    socket.emit("joinRoom", ns.name, (newMember) => {});
+    socket.on("join-room", (message, joinCallback) => {
+      socket.join(message.data);
+      io.of(ns.endpoint)
+        .in(message.data)
+        .clients((err, clients) => {
+          joinCallback(clients.length);
+        });
+    });
+    socket.on("message-to-server", (message) => {
+      io.of(ns.endpoint).emit("message-from-server", { data: message.data });
+    });
   });
 });
